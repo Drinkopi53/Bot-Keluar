@@ -166,6 +166,35 @@ printl("enforce shotgun or sniper rifle");
 	// handle switch logic
 	L4B.EnforcePrimaryWeapon(self, ActiveWeapon);
 
+	// Dynamic Pathfinding
+	if ("currentPath" in self.GetScriptScope() && self.GetScriptScope().currentPath)
+	{
+		local scope = self.GetScriptScope();
+		local path = scope.currentPath;
+		local index = scope.pathIndex;
+
+		if (index < path.len())
+		{
+			local nextNav = path[index];
+			local dest = nextNav.GetCenter();
+			if ((Origin - dest).Length() < 50)
+			{
+				scope.pathIndex++;
+			}
+			else
+			{
+				Left4Utils.BotCmdMove(self, dest);
+			}
+			return L4B.Settings.bot_think_interval;
+		}
+		else
+		{
+			scope.currentPath = null;
+			scope.pathIndex = 0;
+		}
+	}
+
+
 	// Basically, all this CarryItem stuff is because some carriable items despawn as prop_physics and respawn as weapon_* and viceversa when picking/dropping them
 	// and also because the game's "dropped" event does not trigger every time
 	if (CarryItem)
@@ -442,7 +471,177 @@ printl("enforce shotgun or sniper rifle");
 		}
 	}
 
+	// Dynamic Pathfinding
+	DetectDynamicObstacles(self);
+
 	return L4B.Settings.bot_think_interval;
+}
+
+// Fungsi untuk mendeteksi rintangan dinamis
+::DetectDynamicObstacles <- function(bot)
+{
+	local botOrigin = bot.GetOrigin();
+	local forward = bot.GetPlayerForwardVector();
+	local checkPos = botOrigin + (forward * 100); // Periksa 100 unit di depan bot
+
+	// Periksa pintu
+	local door = Entities.FindByClassnameWithin(null, "prop_door_rotating", checkPos, 150);
+	if (door && door.IsValid())
+	{
+		local doorState = NetProps.GetPropInt(door, "m_bOpen");
+		if (doorState == 0) // Pintu tertutup
+		{
+			printl("Bot " + bot.GetPlayerName() + " mendeteksi pintu tertutup.");
+			local startNav = NavMesh.GetNearestNavArea(botOrigin);
+			local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+			if (startNav && endNav)
+			{
+				local path = FindPath(startNav, endNav);
+				if (path)
+				{
+					bot.GetScriptScope().currentPath = path;
+					bot.GetScriptScope().pathIndex = 0;
+					return;
+				}
+			}
+		}
+	}
+
+	// Periksa gerombolan musuh
+	local commonInfected = 0;
+	local ent = null;
+	while(ent = Entities.FindByClassnameWithin(ent, "infected", checkPos, 200))
+	{
+		commonInfected++;
+	}
+
+	if (commonInfected > 10) // Jika ada lebih dari 10 musuh
+	{
+		printl("Bot " + bot.GetPlayerName() + " mendeteksi gerombolan musuh.");
+		local startNav = NavMesh.GetNearestNavArea(botOrigin);
+		local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+		if (startNav && endNav)
+		{
+			local path = FindPath(startNav, endNav);
+			if (path)
+			{
+				bot.GetScriptScope().currentPath = path;
+				bot.GetScriptScope().pathIndex = 0;
+				return;
+			}
+		}
+	}
+}
+
+// Inisialisasi variabel pathfinding
+// Menambahkan variabel `currentPath` dan `pathIndex` ke scope bot
+::Left4Bots.AddBotThink <- function (bot)
+{
+	if (bot.GetScriptScope().rawin("L4B"))
+		return;
+
+	::Left4Bots.AddBotThink_orig(bot);
+	local scope = bot.GetScriptScope();
+	scope.currentPath <- null;
+	scope.pathIndex <- 0;
+}
+
+// Simpan fungsi asli
+::Left4Bots.AddBotThink_orig <- ::Left4Bots.AddBotThink;
+
+// Timpa fungsi BotMoveTo untuk mencegah gangguan
+// Fungsi ini ditimpa untuk memastikan bahwa logika pergerakan standar tidak
+// mengganggu pathfinding dinamis yang baru.
+::Left4Bots.AIFuncs.BotMoveTo <- function (dest, force = false)
+{
+	// Jangan lakukan apa-apa jika kita mengikuti path kustom
+	if (self.GetScriptScope().currentPath) return;
+
+	::Left4Bots.AIFuncs.BotMoveTo_orig(dest, force);
+}
+
+// Simpan fungsi asli
+::Left4Bots.AIFuncs.BotMoveTo_orig <- ::Left4Bots.AIFuncs.BotMoveTo;
+
+// Timpa fungsi BotMoveReset untuk mencegah gangguan
+// Fungsi ini ditimpa untuk memastikan bahwa logika pergerakan standar tidak
+// mengganggu pathfinding dinamis yang baru.
+::Left4Bots.AIFuncs.BotMoveReset <- function ()
+{
+	// Jangan lakukan apa-apa jika kita mengikuti path kustom
+	if (self.GetScriptScope().currentPath) return;
+
+	::Left4Bots.AIFuncs.BotMoveReset_orig();
+}
+
+// Simpan fungsi asli
+::Left4Bots.AIFuncs.BotMoveReset_orig <- ::Left4Bots.AIFuncs.BotMoveReset;
+
+// Fungsi untuk menghitung jarak heuristik (Manhattan distance)
+::Heuristic <- function(a, b)
+{
+	return abs(a.x - b.x) + abs(a.y - b.y);
+}
+
+// Implementasi algoritma A*
+::FindPath <- function(startNav, endNav)
+{
+	local openSet = [startNav];
+	local cameFrom = {};
+	local gScore = {};
+	gScore[startNav] <- 0;
+
+	local fScore = {};
+	fScore[startNav] <- Heuristic(startNav.GetCenter(), endNav.GetCenter());
+
+	while (openSet.len() > 0)
+	{
+		local current = null;
+		local lowestFScore = 999999;
+		foreach (nav in openSet)
+		{
+			if (fScore[nav] < lowestFScore)
+			{
+				lowestFScore = fScore[nav];
+				current = nav;
+			}
+		}
+
+		if (current == endNav)
+		{
+			// Path found, reconstruct
+			local path = [current];
+			while (current in cameFrom)
+			{
+				current = cameFrom[current];
+				path.insert(0, current);
+			}
+			return path;
+		}
+
+		openSet.remove(openSet.find(current));
+
+		for (local i = 0; i < current.GetConnectionCount(); i++)
+		{
+			local neighbor = current.GetConnection(i);
+			if (!neighbor.IsValid()) continue;
+
+			local tentativeGScore = gScore[current] + (current.GetCenter() - neighbor.GetCenter()).Length();
+			if (!(neighbor in gScore) || tentativeGScore < gScore[neighbor])
+			{
+				cameFrom[neighbor] <- current;
+				gScore[neighbor] <- tentativeGScore;
+				fScore[neighbor] <- gScore[neighbor] + Heuristic(neighbor.GetCenter(), endNav.GetCenter());
+				if (openSet.find(neighbor) == null)
+				{
+					openSet.append(neighbor);
+				}
+			}
+		}
+	}
+
+	// No path found
+	return null;
 }
 
 // Main bot think function for the extra L4D1 bots
