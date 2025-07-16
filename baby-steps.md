@@ -47,6 +47,78 @@ Meningkatkan algoritma pathfinding bot agar mereka dapat menemukan jalur yang le
 
 ## Perbaikan Error Konsol Left 4 Dead 2
 
+### Detail Error dan Solusi untuk `GetPlayerForwardVector`
+
+**Error:** `AN ERROR HAS OCCURED [the index 'GetPlayerForwardVector' does not exist]`
+**Lokasi:** `scripts/vscripts/left4bots_afterload.nut` baris 484
+
+**Penyebab:**
+Error ini menunjukkan bahwa fungsi `GetPlayerForwardVector()` yang dipanggil pada objek `bot` (yang merupakan instance dari entitas pemain) tidak tersedia atau tidak dikenali dalam konteks Squirrel (bahasa scripting Left 4 Dead 2). Ini kemungkinan besar karena:
+1.  Fungsi tersebut tidak ada dalam API Squirrel yang diekspos untuk entitas pemain.
+2.  Nama fungsi salah ketik atau tidak sesuai dengan konvensi penamaan yang benar.
+3.  Objek `bot` bukan tipe yang diharapkan yang memiliki fungsi tersebut.
+
+**Solusi yang Disarankan (untuk implementasi di `left4bots_afterload.nut`):**
+
+Karena `GetPlayerForwardVector()` tidak tersedia, kita perlu mencari cara alternatif untuk mendapatkan vektor maju bot. Beberapa pendekatan yang mungkin:
+
+1.  **Menggunakan `bot.GetAbsAngles()` dan mengonversinya ke vektor:**
+    Jika bot memiliki properti sudut absolut, kita bisa mendapatkan sudut yaw (rotasi horizontal) dan mengonversinya menjadi vektor arah. Ini adalah metode umum dalam game engine.
+    Contoh pseudo-code:
+    ```squirrel
+    local angles = bot.GetAbsAngles();
+    local forward = AngleVectors(angles); // Asumsi ada fungsi AngleVectors yang mengonversi sudut ke vektor
+    ```
+    Anda mungkin perlu mencari fungsi yang setara dengan `AngleVectors` dalam API Squirrel Left 4 Dead 2 atau mengimplementasikannya secara manual menggunakan trigonometri.
+
+2.  **Menggunakan `bot.GetViewVector()` atau `bot.GetAimVector()`:**
+    Beberapa game engine menyediakan fungsi untuk mendapatkan vektor arah pandang atau arah bidik pemain. Ini mungkin lebih sesuai jika tujuannya adalah untuk mengetahui ke mana bot "melihat".
+    Contoh pseudo-code:
+    ```squirrel
+    local forward = bot.GetViewVector(); // Atau GetAimVector()
+    ```
+    Periksa dokumentasi API Squirrel Left 4 Dead 2 untuk fungsi-fungsi semacam ini.
+
+3.  **Menggunakan `NavMesh` atau `Path` terkait informasi arah:**
+    Jika bot sedang mengikuti jalur navigasi, mungkin ada cara untuk mendapatkan arah segmen jalur berikutnya dari `NavMesh` yang sedang diikuti bot. Ini akan memberikan arah pergerakan bot.
+
+**Penting:**
+Perbaikan sebenarnya harus dilakukan di file `left4bots_afterload.nut` dengan mengganti baris yang bermasalah (baris 484) dengan implementasi yang benar berdasarkan API yang tersedia. Dokumentasi ini hanya memberikan panduan untuk perbaikan tersebut.
+
+### Detail Error dan Solusi untuk `wrong number of parameters`
+
+**Error:** `AN ERROR HAS OCCURED [wrong number of parameters]`
+**Lokasi:** `scripts/vscripts/left4bots_afterload.nut` baris 522
+
+**Penyebab:**
+Error ini menunjukkan bahwa fungsi `FindPath` dipanggil dengan jumlah parameter yang salah pada baris 522. Berdasarkan definisi fungsi `FindPath` pada baris 562, fungsi ini mengharapkan dua parameter: `startNav` dan `endNav`.
+
+**Solusi yang Disarankan (untuk implementasi di `left4bots_afterload.nut`):**
+
+Pastikan bahwa saat memanggil `FindPath` pada baris 522, Anda menyediakan dua objek `NavArea` yang valid sebagai argumen.
+
+Baris yang bermasalah:
+`local path = FindPath(startNav, endNav);`
+
+Periksa apakah `startNav` dan `endNav` benar-benar objek `NavArea` yang valid dan tidak `null` sebelum memanggil `FindPath`. Jika salah satu atau keduanya `null`, maka `FindPath` akan menerima parameter yang salah, menyebabkan error ini.
+
+Contoh perbaikan (pseudo-code):
+```squirrel
+local startNav = NavMesh.GetNearestNavArea(botOrigin);
+local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+if (startNav && endNav) // Pastikan kedua NavArea valid
+{
+    local path = FindPath(startNav, endNav);
+    if (path)
+    {
+        bot.GetScriptScope().currentPath = path;
+        bot.GetScriptScope().pathIndex = 0;
+        return;
+    }
+}
+```
+Pastikan `bot.GetScriptScope().MovePos` juga mengembalikan posisi yang valid yang dapat digunakan untuk mendapatkan `NavArea` terdekat.
+
 ### Detail Error dan Solusi
 
 **Error:** `AN ERROR HAS OCCURED [the index 'GetPlayerForwardVector' does not exist]`
