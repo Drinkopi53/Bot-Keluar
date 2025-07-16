@@ -504,10 +504,10 @@ printl("enforce shotgun or sniper rifle");
 		{
 			printl("Bot " + bot.GetPlayerName() + " mendeteksi pintu tertutup.");
 			local startNav = NavMesh.GetNearestNavArea(botOrigin);
-			if (bot.GetScriptScope().MovePos)
+			if (startNav && bot.GetScriptScope().MovePos)
 			{
 				local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-				if (startNav && endNav)
+				if (endNav)
 				{
 					local path = FindPath(startNav, endNav);
 					if (path)
@@ -534,10 +534,10 @@ printl("enforce shotgun or sniper rifle");
 	{
 		printl("Bot " + bot.GetPlayerName() + " mendeteksi gerombolan musuh.");
 		local startNav = NavMesh.GetNearestNavArea(botOrigin);
-		if (bot.GetScriptScope().MovePos)
+		if (startNav && bot.GetScriptScope().MovePos)
 		{
 			local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-			if (startNav && endNav)
+			if (endNav)
 			{
 				local path = FindPath(startNav, endNav);
 				if (path)
