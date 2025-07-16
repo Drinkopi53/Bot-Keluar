@@ -481,8 +481,17 @@ printl("enforce shotgun or sniper rifle");
 ::DetectDynamicObstacles <- function(bot)
 {
 	local botOrigin = bot.GetOrigin();
-	local angles = bot.EyeAngles();
-	local forward = AngleToForwardVector(angles);
+	local velocity = bot.GetVelocity();
+	local forward;
+	if (velocity.LengthSqr() > 0)
+	{
+		forward = velocity.Norm();
+	}
+	else
+	{
+		local angles = bot.EyeAngles();
+		forward = AngleToForwardVector(angles);
+	}
 	local checkPos = botOrigin + (forward * 100); // Periksa 100 unit di depan bot
 
 	// Periksa pintu
@@ -494,15 +503,18 @@ printl("enforce shotgun or sniper rifle");
 		{
 			printl("Bot " + bot.GetPlayerName() + " mendeteksi pintu tertutup.");
 			local startNav = NavMesh.GetNearestNavArea(botOrigin);
-			local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-			if (startNav && endNav)
+			if (bot.GetScriptScope().MovePos)
 			{
-				local path = FindPath(startNav, endNav);
-				if (path)
+				local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+				if (startNav && endNav)
 				{
-					bot.GetScriptScope().currentPath = path;
-					bot.GetScriptScope().pathIndex = 0;
-					return;
+					local path = FindPath(startNav, endNav);
+					if (path)
+					{
+						bot.GetScriptScope().currentPath = path;
+						bot.GetScriptScope().pathIndex = 0;
+						return;
+					}
 				}
 			}
 		}
@@ -520,15 +532,18 @@ printl("enforce shotgun or sniper rifle");
 	{
 		printl("Bot " + bot.GetPlayerName() + " mendeteksi gerombolan musuh.");
 		local startNav = NavMesh.GetNearestNavArea(botOrigin);
-		local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-		if (startNav && endNav)
+		if (bot.GetScriptScope().MovePos)
 		{
-			local path = FindPath(startNav, endNav);
-			if (path)
+			local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+			if (startNav && endNav)
 			{
-				bot.GetScriptScope().currentPath = path;
-				bot.GetScriptScope().pathIndex = 0;
-				return;
+				local path = FindPath(startNav, endNav);
+				if (path)
+				{
+					bot.GetScriptScope().currentPath = path;
+					bot.GetScriptScope().pathIndex = 0;
+					return;
+				}
 			}
 		}
 	}
