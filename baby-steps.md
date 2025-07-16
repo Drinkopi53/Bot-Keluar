@@ -46,3 +46,41 @@ Meningkatkan algoritma pathfinding bot agar mereka dapat menemukan jalur yang le
     *   Dokumentasikan implementasi baru dan berikan opsi kustomisasi bagi pengguna untuk menyesuaikan parameter navigasi bot.
 
 ## Perbaikan Error Konsol Left 4 Dead 2
+
+### Detail Error dan Solusi
+
+**Error:** `AN ERROR HAS OCCURED [the index 'GetPlayerForwardVector' does not exist]`
+**Lokasi:** `scripts/vscripts/left4bots_afterload.nut` baris 484
+
+**Penyebab:**
+Error ini menunjukkan bahwa fungsi `GetPlayerForwardVector()` yang dipanggil pada objek `bot` (yang merupakan instance dari entitas pemain) tidak tersedia atau tidak dikenali dalam konteks Squirrel (bahasa scripting Left 4 Dead 2). Ini kemungkinan besar karena:
+1.  Fungsi tersebut tidak ada dalam API Squirrel yang diekspos untuk entitas pemain.
+2.  Nama fungsi salah ketik atau tidak sesuai dengan konvensi penamaan yang benar.
+3.  Objek `bot` bukan tipe yang diharapkan yang memiliki fungsi tersebut.
+
+**Solusi yang Disarankan (untuk implementasi di `left4bots_afterload.nut`):**
+
+Karena `GetPlayerForwardVector()` tidak tersedia, kita perlu mencari cara alternatif untuk mendapatkan vektor maju bot. Beberapa pendekatan yang mungkin:
+
+1.  **Menggunakan `bot.GetAbsAngles()` dan mengonversinya ke vektor:**
+    Jika bot memiliki properti sudut absolut, kita bisa mendapatkan sudut yaw (rotasi horizontal) dan mengonversinya menjadi vektor arah. Ini adalah metode umum dalam game engine.
+    Contoh pseudo-code:
+    ```squirrel
+    local angles = bot.GetAbsAngles();
+    local forward = AngleVectors(angles); // Asumsi ada fungsi AngleVectors yang mengonversi sudut ke vektor
+    ```
+    Anda mungkin perlu mencari fungsi yang setara dengan `AngleVectors` dalam API Squirrel Left 4 Dead 2 atau mengimplementasikannya secara manual menggunakan trigonometri.
+
+2.  **Menggunakan `bot.GetViewVector()` atau `bot.GetAimVector()`:**
+    Beberapa game engine menyediakan fungsi untuk mendapatkan vektor arah pandang atau arah bidik pemain. Ini mungkin lebih sesuai jika tujuannya adalah untuk mengetahui ke mana bot "melihat".
+    Contoh pseudo-code:
+    ```squirrel
+    local forward = bot.GetViewVector(); // Atau GetAimVector()
+    ```
+    Periksa dokumentasi API Squirrel Left 4 Dead 2 untuk fungsi-fungsi semacam ini.
+
+3.  **Menggunakan `NavMesh` atau `Path` terkait informasi arah:**
+    Jika bot sedang mengikuti jalur navigasi, mungkin ada cara untuk mendapatkan arah segmen jalur berikutnya dari `NavMesh` yang sedang diikuti bot. Ini akan memberikan arah pergerakan bot.
+
+**Penting:**
+Perbaikan sebenarnya harus dilakukan di file `left4bots_afterload.nut` dengan mengganti baris yang bermasalah (baris 484) dengan implementasi yang benar berdasarkan API yang tersedia. Dokumentasi ini hanya memberikan panduan untuk perbaikan tersebut.
