@@ -503,20 +503,27 @@ printl("enforce shotgun or sniper rifle");
 		if (doorState == 0) // Pintu tertutup
 		{
 			printl("Bot " + bot.GetPlayerName() + " mendeteksi pintu tertutup.");
-			local startNav = NavMesh.GetNearestNavArea(botOrigin);
-			if (startNav && bot.GetScriptScope().MovePos)
+			try
 			{
-				local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-				if (endNav)
+				local startNav = NavMesh.GetNearestNavArea(botOrigin);
+				if (startNav && bot.GetScriptScope().MovePos)
 				{
-					local path = FindPath(startNav, endNav);
-					if (path)
+					local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+					if (endNav)
 					{
-						bot.GetScriptScope().currentPath = path;
-						bot.GetScriptScope().pathIndex = 0;
-						return;
+						local path = FindPath(startNav, endNav);
+						if (path)
+						{
+							bot.GetScriptScope().currentPath = path;
+							bot.GetScriptScope().pathIndex = 0;
+							return;
+						}
 					}
 				}
+			}
+			catch (ex)
+			{
+				printl("Error di DetectDynamicObstacles (pintu): " + ex);
 			}
 		}
 	}
@@ -533,20 +540,27 @@ printl("enforce shotgun or sniper rifle");
 	if (commonInfected > 10) // Jika ada lebih dari 10 musuh
 	{
 		printl("Bot " + bot.GetPlayerName() + " mendeteksi gerombolan musuh.");
-		local startNav = NavMesh.GetNearestNavArea(botOrigin);
-		if (startNav && bot.GetScriptScope().MovePos)
+		try
 		{
-			local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
-			if (endNav)
+			local startNav = NavMesh.GetNearestNavArea(botOrigin);
+			if (startNav && bot.GetScriptScope().MovePos)
 			{
-				local path = FindPath(startNav, endNav);
-				if (path)
+				local endNav = NavMesh.GetNearestNavArea(bot.GetScriptScope().MovePos);
+				if (endNav)
 				{
-					bot.GetScriptScope().currentPath = path;
-					bot.GetScriptScope().pathIndex = 0;
-					return;
+					local path = FindPath(startNav, endNav);
+					if (path)
+					{
+						bot.GetScriptScope().currentPath = path;
+						bot.GetScriptScope().pathIndex = 0;
+						return;
+					}
 				}
 			}
+		}
+		catch (ex)
+		{
+			printl("Error di DetectDynamicObstacles (gerombolan): " + ex);
 		}
 	}
 }
