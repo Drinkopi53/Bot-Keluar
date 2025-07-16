@@ -485,7 +485,8 @@ printl("enforce shotgun or sniper rifle");
 	local forward;
 	if (velocity.LengthSqr() > 0)
 	{
-		forward = velocity.Norm();
+		forward = Vector(velocity.x, velocity.y, velocity.z);
+		forward.Norm();
 	}
 	else
 	{
