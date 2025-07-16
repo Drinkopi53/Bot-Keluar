@@ -22,6 +22,134 @@ printl("enforce shotgun or sniper rifle");
 ::Left4Bots.Settings.enforce_shotgun <- 15; // pistol + magnum + melee + chainsaw
 ::Left4Bots.Settings.enforce_sniper_rifle <- 15; // pistol + magnum + melee + chainsaw
 
+// Variabel global untuk fitur Posisi Bertahan Adaptif
+::g_hTankTarget <- null;
+::g_vTankLastKnownPos <- null;
+
+// Fungsi untuk mendeteksi keberadaan Tank di peta
+::L4B_IsTankActive <- function()
+{
+    local tank = Entities.FindByClassname(null, "tank");
+    if (tank && tank.IsValid())
+    {
+        g_hTankTarget = tank;
+        g_vTankLastKnownPos = tank.GetOrigin();
+        return true;
+    }
+
+    g_hTankTarget = null;
+    return false;
+}
+
+// Fungsi untuk mendapatkan jarak optimal berdasarkan senjata bot
+::L4B_GetOptimalDistance <- function(hBot)
+{
+    local weapon = hBot.GetActiveWeapon();
+    if (weapon)
+    {
+        local weaponType = Left4Utils.GetWeaponTypeById(Left4Utils.GetWeaponId(weapon));
+        switch (weaponType)
+        {
+            case "shotgun":
+                return 400; // Jarak dekat untuk shotgun
+            case "sniper_rifle":
+                return 1200; // Jarak jauh untuk sniper
+            default:
+                return 800; // Jarak menengah untuk senjata lain
+        }
+    }
+    return 800; // Default jika tidak ada senjata
+}
+
+// Fungsi untuk mencari posisi berlindung (cover)
+::L4B_FindCover <- function(hBot, hTank)
+{
+    local botOrigin = hBot.GetOrigin();
+    local tankOrigin = hTank.GetOrigin();
+    local searchRadius = 500; // Cari dalam radius 500 unit
+    local bestCoverPos = null;
+    local bestCoverScore = -1;
+
+    for (local i = 0; i < 16; i++) // Coba 16 posisi acak di sekitar bot
+    {
+        local angle = RandomFloat(0, 360) * (PI / 180.0);
+        local dist = RandomFloat(100, searchRadius);
+        local checkPos = botOrigin + Vector(cos(angle) * dist, sin(angle) * dist, 0);
+
+        local navArea = NavMesh.GetNearestNavArea(checkPos);
+        if (navArea && navArea.IsValid())
+        {
+            local coverPos = navArea.GetCenter();
+
+            // Gunakan TraceLine untuk memeriksa apakah ada halangan antara cover dan Tank
+            local traceData = { start = coverPos, end = tankOrigin, ignore = hBot };
+            TraceLine(traceData);
+
+            if (traceData.fraction < 1.0) // Ada halangan, posisi ini bagus
+            {
+                local score = (botOrigin - coverPos).Length(); // Prioritaskan cover terdekat
+                if (score > bestCoverScore)
+                {
+                    bestCoverScore = score;
+                    bestCoverPos = coverPos;
+                }
+            }
+        }
+    }
+    return bestCoverPos;
+}
+
+// Fungsi untuk melakukan pergerakan lateral (menyamping)
+::L4B_PerformLateralMovement <- function(hBot, hTank)
+{
+    local botOrigin = hBot.GetOrigin();
+    local toTank = (hTank.GetOrigin() - botOrigin).Norm();
+
+    // Vektor tegak lurus (kiri atau kanan)
+    local lateralDir = Vector(-toTank.y, toTank.x, 0);
+    if (RandomInt(0, 1) == 0)
+    {
+        lateralDir *= -1; // Bergerak ke arah sebaliknya (kanan)
+    }
+
+    local lateralPos = botOrigin + (lateralDir * 150); // Bergerak sejauh 150 unit
+
+    // Periksa apakah posisi lateral valid
+    local navArea = NavMesh.GetNearestNavArea(lateralPos);
+    if (navArea && navArea.IsValid())
+    {
+        Left4Utils.BotCmdMove(hBot, navArea.GetCenter());
+        printl("Bot " + hBot.GetPlayerName() + " melakukan pergerakan lateral.");
+    }
+}
+
+// Fungsi untuk memeriksa apakah bot terjebak
+::L4B_IsBotTrapped <- function(hBot)
+{
+    local botOrigin = hBot.GetOrigin();
+    local navArea = NavMesh.GetNearestNavArea(botOrigin);
+    if (navArea && navArea.IsValid())
+    {
+        if (navArea.GetConnectionCount() <= 1) // Hanya satu atau nol koneksi, kemungkinan buntu
+        {
+            // Cek lebih lanjut dengan raycast di sekitar bot
+            local hitCount = 0;
+            for (local i = 0; i < 8; i++)
+            {
+                local angle = i * 45 * (PI / 180.0);
+                local endPos = botOrigin + Vector(cos(angle) * 100, sin(angle) * 100, 0);
+                local traceData = { start = botOrigin, end = endPos, ignore = hBot };
+                TraceLine(traceData);
+                if (traceData.fraction < 1.0)
+                {
+                    hitCount++;
+                }
+            }
+            return hitCount >= 5; // Jika 5 dari 8 arah terhalang, anggap terjebak
+        }
+    }
+    return false;
+}
 
 // Returns the "WeaponType" for the weapon with the given id
 ::Left4Utils.GetWeaponTypeById <- function (weaponId)
@@ -165,6 +293,75 @@ printl("enforce shotgun or sniper rifle");
 
 	// handle switch logic
 	L4B.EnforcePrimaryWeapon(self, ActiveWeapon);
+
+	// Panggil fungsi deteksi Tank
+	L4B_IsTankActive();
+
+	// Logika Posisi Bertahan Adaptif (jika Tank aktif)
+	if (g_hTankTarget)
+	{
+		local botOrigin = self.GetOrigin();
+		local distanceToTank = (botOrigin - g_vTankLastKnownPos).Length();
+		local optimalDistance = L4B_GetOptimalDistance(self);
+
+		if (distanceToTank < optimalDistance * 0.8) // Terlalu dekat
+		{
+			local moveAwayVector = (botOrigin - g_vTankLastKnownPos).Norm() * 200;
+			local safePos = botOrigin + moveAwayVector;
+			Left4Utils.BotCmdMove(self, safePos);
+			printl("Bot " + self.GetPlayerName() + " bergerak mundur dari Tank.");
+			return L4B.Settings.bot_think_interval; // Langsung proses frame berikutnya
+		}
+		else if (distanceToTank > optimalDistance * 1.2) // Terlalu jauh
+		{
+			// Coba bergerak lebih dekat, tapi tetap pertahankan garis tembak
+			local targetPos = g_vTankLastKnownPos;
+			Left4Utils.BotCmdMove(self, targetPos);
+			printl("Bot " + self.GetPlayerName() + " bergerak maju mendekati Tank.");
+		}
+
+		// Cek apakah perlu mencari perlindungan
+		local traceData = { start = botOrigin, end = g_vTankLastKnownPos, ignore = self };
+		TraceLine(traceData);
+		if (traceData.fraction == 1.0) // Tidak ada halangan, bot di area terbuka
+		{
+			local coverPos = L4B_FindCover(self, g_hTankTarget);
+			if (coverPos)
+			{
+				Left4Utils.BotCmdMove(self, coverPos);
+				printl("Bot " + self.GetPlayerName() + " mencari perlindungan dari Tank.");
+				return L4B.Settings.bot_think_interval;
+			}
+		}
+
+		// Lakukan pergerakan lateral secara acak untuk menghindari serangan
+		if (RandomInt(0, 10) == 0) // 10% kemungkinan setiap think
+		{
+			L4B_PerformLateralMovement(self, g_hTankTarget);
+			return L4B.Settings.bot_think_interval;
+		}
+
+		// Cek apakah bot terjebak
+		if (L4B_IsBotTrapped(self))
+		{
+			printl("Bot " + self.GetPlayerName() + " terjebak, mencari jalan keluar.");
+			// Cari area yang lebih terbuka yang jauh dari Tank
+			local escapePos = g_vTankLastKnownPos + ((self.GetOrigin() - g_vTankLastKnownPos).Norm() * 1000);
+			local startNav = NavMesh.GetNearestNavArea(self.GetOrigin());
+			local endNav = NavMesh.GetNearestNavArea(escapePos);
+			if (startNav && endNav)
+			{
+				local path = FindPath(startNav, endNav);
+				if (path)
+				{
+					self.GetScriptScope().currentPath = path;
+					self.GetScriptScope().pathIndex = 0;
+					printl("Bot " + self.GetPlayerName() + " menemukan jalur evakuasi.");
+					return L4B.Settings.bot_think_interval;
+				}
+			}
+		}
+	}
 
 	// Dynamic Pathfinding
 	if ("currentPath" in self.GetScriptScope() && self.GetScriptScope().currentPath)
