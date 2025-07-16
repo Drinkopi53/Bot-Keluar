@@ -44,3 +44,19 @@ Meningkatkan algoritma pathfinding bot agar mereka dapat menemukan jalur yang le
 
 10. **Dokumentasi dan Kustomisasi**:
     *   Dokumentasikan implementasi baru dan berikan opsi kustomisasi bagi pengguna untuk menyesuaikan parameter navigasi bot.
+
+## Perbaikan Error Konsol Left 4 Dead 2
+
+**Catatan:** Perbaikan ini mungkin melibatkan modifikasi file `scripts/vscripts/left4bots_events.nut`.
+
+1.  **Analisis Error Konsol**:
+    *   Periksa `scripts/vscripts/left4bots_events.nut` pada baris 92, 32, 433, dan 1704.
+    *   Identifikasi penyebab `index 'rawin'` dan `index 'BotUpdatePickupToSearch'` tidak ada.
+    *   Selidiki error `ConceptsHub.ConceptFunc` terkait `Orders` dan `CanReset`.
+2.  **Perbaiki Definisi Indeks yang Hilang**:
+    *   Tambahkan atau perbaiki definisi indeks `rawin` dan `BotUpdatePickupToSearch` di `left4bots_events.nut`.
+    *   Pastikan semua variabel atau fungsi yang direferensikan ada dan diinisialisasi dengan benar.
+3.  **Perbaiki Error ConceptsHub**:
+    *   Periksa implementasi `ConceptsHub.ConceptFunc` di `left4bots_events.nut` dan pastikan indeks `Orders` dan `CanReset` didefinisikan atau ditangani dengan benar.
+4.  **Uji Perbaikan**:
+    *   Jalankan game dan periksa konsol untuk memastikan error yang disebutkan telah diperbaiki.
