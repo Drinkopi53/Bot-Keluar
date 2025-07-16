@@ -481,8 +481,7 @@ printl("enforce shotgun or sniper rifle");
 ::DetectDynamicObstacles <- function(bot)
 {
 	local botOrigin = bot.GetOrigin();
-	local angles = bot.GetAbsAngles();
-	local forward = AngleVectors(angles);
+	local forward = bot.GetAimVector();
 	local checkPos = botOrigin + (forward * 100); // Periksa 100 unit di depan bot
 
 	// Periksa pintu
