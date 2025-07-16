@@ -65,7 +65,7 @@
 
 	// [1/0] Enable/Disable bots being able to set the barricade gascans on fire (NOTE: if this is 0, 'destroy' and 'use' orders on the barricade gascans will not work)
 	damage_barricade = 1
-	
+
 	// [1/0] Enable/Disable bots being able to ignite gascans and other items
 	damage_other = 0
 
@@ -126,7 +126,7 @@
 	// 15 = pistol + magnum + melee + chainsaw
 	// 0 = OFF (Vanilla AI logic)
 	enforce_shotgun = 15
-	
+
 	// Don't switch to the secondary weapon if the primary is a sniper rifle and the secondary is
 	// 1 = pistol, 2 = magnum, 4 = melee, 8 = chainsaw
 	// 15 = pistol + magnum + melee + chainsaw
@@ -164,7 +164,7 @@
 
 	// [1/0] Should the bots give their upgrade packs to human players?
 	give_bots_upgrades = 1
-	
+
 	// [1/0] Should the bots give their weapons to human players?
 	give_bots_weapons = 1
 
@@ -219,7 +219,7 @@
 
 	// The nav areas whithin this radius from the incapped survivor and a tank nearby will be blocked if incap_block_nav_interval > 0
 	incap_block_nav_radius = 100
-	
+
 	// An aggroed tank must be within this radius from the incapped survivor in order to block the nav areas around the survivor
 	incap_block_nav_tank_range = 700
 
@@ -290,7 +290,7 @@
 
 	// While executing MOVE commands (or always if manual_attack_always = 1), this is the max distance of the enemies that the bot will shoot
 	manual_attack_radius = 950
-	
+
 	// Smooth camera rotation, turn a part of angles at a time instead of looking at the target immediately, only apply to shoot command.
 	// Depending on the set value, can easily adjust the bot's aiming speed, observer the bots at first person to check the difference.
 	// Valve use these Cvars 'sb_normal_saccade_speed = 350', 'sb_combat_saccade_speed = 1000' to contronl the default AI.
@@ -344,7 +344,7 @@
 
 	// >0 = BotMoveTo area and move pos are drawn on screen for this amount of time (only the host can see it). 0 = Disable
 	moveto_debug_duration = 0
-	
+
 	// [1/0] Enable/Disable using the nearest nav area to the destination item as the MOVE destination instead of the item itself. Solves some issues on some maps (like ) but
 	moveto_nav = 1
 
@@ -540,6 +540,24 @@
 	// Force a RETREAT command when aggroed tanks are whithin this radius. 0 = disable
 	tank_retreat_radius = 650
 
+	// [1/0] Enable/Disable the adaptive defense feature for bots against Tank
+	adaptive_defense_enabled = 1
+
+	// Optimal distance from Tank (min)
+	tank_optimal_distance_min = 400
+
+	// Optimal distance from Tank (max)
+	tank_optimal_distance_max = 800
+
+	// Distance to move laterally when dodging Tank attacks
+	tank_lateral_move_distance = 200
+
+	// Radius for searching cover objects
+	cover_search_radius = 300
+
+	// Health threshold to trigger adaptive defense behavior
+	adaptive_defense_health_threshold = 70
+
 	// Tanks with health lower than this will not become molotov/bile jar targets
 	tank_throw_min_health = 1500
 
@@ -613,7 +631,7 @@
 
 	// TraceLine mask used to look for pick-up items
 	tracemask_pickups = 134242379 // 0x1 | 0x2 | 0x8 | 0x40 | 0x2000 | 0x4000 | 0x8000000 (CONTENTS_SOLID | CONTENTS_WINDOW | CONTENTS_GRATE | CONTENTS_BLOCKLOS | CONTENTS_IGNORE_NODRAW_OPAQUE | CONTENTS_MOVEABLE | CONTENTS_DETAIL)
-	
+
 	// TraceLine mask used for other traces
 	tracemask_others = 1174421507 // TRACE_MASK_DEFAULT from left4lib_consts.nut
 
@@ -690,3 +708,4 @@
 	// [1/0] 1 = If the bot pauses an order due to a nearby witch and the bot is holding a shotgun, he will automatically get ordered to crown that witch
 	witch_autocrown = 1
 }
+
