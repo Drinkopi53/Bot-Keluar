@@ -533,49 +533,24 @@ printl("enforce shotgun or sniper rifle");
 	}
 }
 
-// Inisialisasi variabel pathfinding
-// Menambahkan variabel `currentPath` dan `pathIndex` ke scope bot
-::Left4Bots.AddBotThink <- function (bot)
-{
-	if (bot.GetScriptScope().rawin("L4B"))
-		return;
+// Simpan fungsi AddBotThink yang asli
+if (!("AddBotThink_orig" in ::Left4Bots))
+	::Left4Bots.AddBotThink_orig <- ::Left4Bots.AddBotThink;
 
+// Timpa AddBotThink untuk menambahkan variabel pathfinding
+::Left4Bots.AddBotThink <- function(bot)
+{
+	// Panggil fungsi asli terlebih dahulu
 	::Left4Bots.AddBotThink_orig(bot);
+
+	// Tambahkan variabel pathfinding ke scope bot
 	local scope = bot.GetScriptScope();
-	scope.currentPath <- null;
-	scope.pathIndex <- 0;
+	if (!("currentPath" in scope))
+	{
+		scope.currentPath <- null;
+		scope.pathIndex <- 0;
+	}
 }
-
-// Simpan fungsi asli
-::Left4Bots.AddBotThink_orig <- ::Left4Bots.AddBotThink;
-
-// Timpa fungsi BotMoveTo untuk mencegah gangguan
-// Fungsi ini ditimpa untuk memastikan bahwa logika pergerakan standar tidak
-// mengganggu pathfinding dinamis yang baru.
-::Left4Bots.AIFuncs.BotMoveTo <- function (dest, force = false)
-{
-	// Jangan lakukan apa-apa jika kita mengikuti path kustom
-	if (self.GetScriptScope().currentPath) return;
-
-	::Left4Bots.AIFuncs.BotMoveTo_orig(dest, force);
-}
-
-// Simpan fungsi asli
-::Left4Bots.AIFuncs.BotMoveTo_orig <- ::Left4Bots.AIFuncs.BotMoveTo;
-
-// Timpa fungsi BotMoveReset untuk mencegah gangguan
-// Fungsi ini ditimpa untuk memastikan bahwa logika pergerakan standar tidak
-// mengganggu pathfinding dinamis yang baru.
-::Left4Bots.AIFuncs.BotMoveReset <- function ()
-{
-	// Jangan lakukan apa-apa jika kita mengikuti path kustom
-	if (self.GetScriptScope().currentPath) return;
-
-	::Left4Bots.AIFuncs.BotMoveReset_orig();
-}
-
-// Simpan fungsi asli
-::Left4Bots.AIFuncs.BotMoveReset_orig <- ::Left4Bots.AIFuncs.BotMoveReset;
 
 // Fungsi untuk menghitung jarak heuristik (Manhattan distance)
 ::Heuristic <- function(a, b)
