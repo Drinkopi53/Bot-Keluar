@@ -522,11 +522,12 @@ printl("enforce shotgun or sniper rifle");
 	}
 
 	// Periksa gerombolan musuh
+	local areas = {};
+	NavMesh.GetNavAreasInRadius(checkPos, 200, areas);
 	local commonInfected = 0;
-	local ent = null;
-	while(ent = Entities.FindByClassnameWithin(ent, "infected", checkPos, 200))
+	foreach (area in areas)
 	{
-		commonInfected++;
+		commonInfected += area.GetInhabitantCount(TEAM_INFECTED);
 	}
 
 	if (commonInfected > 10) // Jika ada lebih dari 10 musuh
