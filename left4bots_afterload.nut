@@ -481,7 +481,8 @@ printl("enforce shotgun or sniper rifle");
 ::DetectDynamicObstacles <- function(bot)
 {
 	local botOrigin = bot.GetOrigin();
-	local forward = bot.GetAimVector();
+	local angles = bot.EyeAngles();
+	local forward = AngleToForwardVector(angles);
 	local checkPos = botOrigin + (forward * 100); // Periksa 100 unit di depan bot
 
 	// Periksa pintu
@@ -550,6 +551,17 @@ if (!("AddBotThink_orig" in ::Left4Bots))
 		scope.currentPath <- null;
 		scope.pathIndex <- 0;
 	}
+}
+
+// Fungsi untuk mengonversi sudut yaw ke vektor maju
+::AngleToForwardVector <- function(angles)
+{
+	local pitch = angles.x * (PI / 180.0);
+	local yaw = angles.y * (PI / 180.0);
+	local x = cos(yaw) * cos(pitch);
+	local y = sin(yaw) * cos(pitch);
+	local z = -sin(pitch);
+	return Vector(x, y, z);
 }
 
 // Fungsi untuk menghitung jarak heuristik (Manhattan distance)
