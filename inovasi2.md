@@ -1,0 +1,33 @@
+# 10 Ide Inovasi untuk Perlawanan Bots Terhadap Special Infected
+
+Berikut adalah 10 ide inovasi yang dapat meningkatkan efektivitas bots dalam melawan Special Infected di Left 4 Dead, dengan fokus pada improvisasi fungsionalitas yang sudah ada pada `left4bots`:
+
+## 1. Sistem Prioritas Target Adaptif
+*   **Konsep:** Memperluas fungsi `Left4Bots.FindBotNearestEnemy` untuk tidak hanya memprioritaskan Special Infected berdasarkan jenisnya, tetapi juga berdasarkan status dan ancaman langsung. Misalnya, Charger yang sedang dalam fase `charge` atau Smoker yang baru saja `tongue_grab` akan memiliki prioritas lebih tinggi daripada Special Infected yang hanya `idle` atau `walking`. Ini dapat diimplementasikan dengan menambahkan logika penilaian ancaman dinamis ke dalam `ret_array` sebelum penyortiran, mempertimbangkan `NetProps` seperti `m_tongueOwner` untuk Smoker atau status `IsCharging()` untuk Charger.
+
+## 2. Koordinasi Serangan Terpadu
+*   **Konsep:** Mengembangkan mekanisme di mana bots dapat mengidentifikasi target Special Infected yang sama dan mengkoordinasikan serangan untuk `burst damage`. Ini bisa melibatkan penambahan `context` atau `order` baru yang memungkinkan beberapa bot menargetkan entitas yang sama secara bersamaan. Misalnya, jika `Left4Bots.HasTanksWithin` mendeteksi Tank, bot dapat menerima `order` "attack_tank" yang memicu mereka untuk fokus menembak dan menggunakan `throwable` secara terkoordinasi (misalnya, satu bot melempar Molotov, yang lain menembak). Ini akan memerlukan penyesuaian pada `Left4Bots.BotShootAtEntity` dan `Left4Bots.GetThrowTarget` untuk memungkinkan koordinasi.
+
+## 3. Penggunaan Item Medis Cerdas
+*   **Konsep:** Meningkatkan logika dalam `Left4Bots.BotWillUseMeds` dan `Left4Bots.GiveInventoryItem` agar bots lebih cerdas dalam manajemen item medis. Bots akan mempertimbangkan tidak hanya HP mereka sendiri (`totalHealth`), tetapi juga HP rekan tim, ketersediaan item medis di seluruh tim (`TeamMedkits`, `TeamPills`), dan ancaman Special Infected di sekitar (`HasVisibleSpecialInfectedWithin`). Prioritas penyembuhan dapat diberikan kepada pemain dengan HP terendah atau yang paling rentan. Bots juga dapat diprogram untuk secara proaktif memberikan medkit kepada rekan tim yang membutuhkan, bahkan jika mereka sendiri tidak dalam bahaya langsung, dengan menambahkan kondisi ke `GiveInventoryItem`.
+
+## 4. Posisi Taktis Melawan Special Infected
+*   **Konsep:** Memperluas fungsi `Left4Bots.TryDodgeSpit` dan `Left4Bots.CheckShouldDodgeCharger` untuk mencakup lebih banyak skenario dan respons taktis. Bots akan secara aktif mencari posisi yang menguntungkan saat Special Infected muncul, bukan hanya menghindar. Misalnya, saat `HasWitchesWithin` mendeteksi Witch, bots dapat secara otomatis mencari jalur yang aman untuk memutari Witch atau mengambil posisi yang memungkinkan mereka menembak Witch dari jarak aman jika Witch `aggroed`. Ini juga dapat memengaruhi kondisi `BotShouldStartPause` untuk memungkinkan pergerakan taktis daripada hanya `pause`.
+
+## 5. Deteksi dan Peringatan Dini
+*   **Konsep:** Meningkatkan kemampuan deteksi Special Infected dengan memanfaatkan data `NetProps` yang lebih kaya dan menambahkan logika pendengaran. Selain `HasVisibleSpecialInfectedWithin`, bots dapat menggunakan `sound cues` (jika tersedia melalui API) untuk mendeteksi Special Infected di balik dinding atau di luar pandangan. `Left4Bots.SpeakRandomVocalize` dapat dimanfaatkan untuk memberikan peringatan yang lebih spesifik kepada pemain manusia, seperti "Charger di kiri!" atau "Smoker di atas!", dengan menambahkan `context` yang relevan berdasarkan jenis dan lokasi Special Infected yang terdeteksi.
+
+## 6. Reaksi Cepat Terhadap Serangan Mendadak
+*   **Konsep:** Mempercepat respons bots terhadap serangan `pounce` Hunter atau `ride` Jockey. Fungsi `Left4Bots.SpecialGotSurvivor` dapat diperluas untuk memicu `shove` atau tembakan reaktif yang lebih cepat dari bot terdekat. Logika dalam `Left4Bots.PlayerPressButton` dapat dioptimalkan untuk eksekusi `BUTTON_SHOVE` yang instan saat Hunter/Jockey terdeteksi melompat ke arah rekan tim atau bot itu sendiri, dengan prioritas tinggi untuk mengganggu serangan.
+
+## 7. Manajemen Amunisi dan Senjata Optimal
+*   **Konsep:** Mengembangkan logika pemilihan senjata dalam `Left4Bots.FindBotNearestEnemy` dan `Left4Bots.EnforcePrimaryWeapon` agar bots memilih senjata yang paling efektif untuk jenis Special Infected tertentu. Misalnya, jika `Left4Bots.GetNearestVisibleTankWithin` mendeteksi Tank, bot dengan `shotgun` akan memprioritaskan penggunaan `shotgun` di jarak dekat, sementara bot dengan `sniper rifle` akan menjaga jarak dan menembak dari jauh. Bots juga dapat diprogram untuk menghemat amunisi pada Common Infected jika ada ancaman Special Infected yang lebih besar di depan.
+
+## 8. Strategi Penyelamatan Rekan Tim yang Terjebak
+*   **Konsep:** Meningkatkan algoritma penyelamatan dalam `Left4Bots.GetTongueVictimToShove` dan `Left4Bots.CancelReviveAndThrowNade`. Bots akan lebih cerdas dalam menilai risiko sebelum menyelamatkan rekan tim yang `incapacitated` atau `held`. Ini bisa melibatkan pemeriksaan `HasAngryCommonsWithin` atau `HasSpecialInfectedWithin` di sekitar korban sebelum melakukan penyelamatan. Bots juga dapat diprogram untuk menggunakan `throwable` (seperti `pipe bomb` atau `molotov`) untuk membersihkan area di sekitar korban sebelum mendekat, dengan memicu `BotThrow` secara strategis.
+
+## 9. Penggunaan Lingkungan untuk Keuntungan
+*   **Konsep:** Memperluas kemampuan bots untuk berinteraksi dengan lingkungan secara taktis. Fungsi `Left4Bots.TriggerCarAlarm` adalah contoh yang baik. Bots dapat diprogram untuk menembak `propana tank` atau `mobil alarm` (`prop_car_alarm`) saat Tank atau Witch berada di dekatnya, menggunakan `Left4Bots.FindNearestUsable` untuk mengidentifikasi target lingkungan. Ini akan memerlukan penambahan logika ke dalam `AI` bot untuk mengenali dan memprioritaskan interaksi lingkungan ini sebagai bagian dari strategi tempur mereka.
+
+## 10. Pembelajaran Berbasis Pengalaman
+*   **Konsep:** Mengimplementasikan sistem "pembelajaran" sederhana di mana bots dapat menyesuaikan perilaku mereka berdasarkan keberhasilan atau kegagalan sebelumnya. Ini bisa berupa penyesuaian bobot prioritas target atau strategi pergerakan setelah pertemuan dengan Special Infected tertentu. Meskipun implementasi "pembelajaran" yang sebenarnya mungkin kompleks, versi sederhana dapat melibatkan penyesuaian `Settings` internal bot (misalnya, `Settings.dodge_charger_diffangle` atau `Settings.throw_molotov_interval`) secara dinamis berdasarkan statistik performa mereka melawan Special Infected tertentu.
