@@ -320,6 +320,75 @@ printl("enforce shotgun or sniper rifle");
 	// handle switch logic
 	L4B.EnforcePrimaryWeapon(self, ActiveWeapon);
 
+	// Panggil fungsi deteksi Tank
+	L4B_IsTankActive();
+
+	// Logika Posisi Bertahan Adaptif (jika Tank aktif)
+	if (g_hTankTarget)
+	{
+		local botOrigin = self.GetOrigin();
+		local distanceToTank = (botOrigin - g_vTankLastKnownPos).Length();
+		local optimalDistance = L4B_GetOptimalDistance(self);
+
+		if (distanceToTank < optimalDistance * 0.8) // Terlalu dekat
+		{
+			local moveAwayVector = (botOrigin - g_vTankLastKnownPos).Norm() * 200;
+			local safePos = botOrigin + moveAwayVector;
+			Left4Utils.BotCmdMove(self, safePos);
+			printl("Bot " + self.GetPlayerName() + " bergerak mundur dari Tank.");
+			return L4B.Settings.bot_think_interval; // Langsung proses frame berikutnya
+		}
+		else if (distanceToTank > optimalDistance * 1.2) // Terlalu jauh
+		{
+			// Coba bergerak lebih dekat, tapi tetap pertahankan garis tembak
+			local targetPos = g_vTankLastKnownPos;
+			Left4Utils.BotCmdMove(self, targetPos);
+			printl("Bot " + self.GetPlayerName() + " bergerak maju mendekati Tank.");
+		}
+
+		// Cek apakah perlu mencari perlindungan
+		local traceData = { start = botOrigin, end = g_vTankLastKnownPos, ignore = self };
+		TraceLine(traceData);
+		if (traceData.fraction == 1.0) // Tidak ada halangan, bot di area terbuka
+		{
+			local coverPos = L4B_FindCover(self, g_hTankTarget);
+			if (coverPos)
+			{
+				Left4Utils.BotCmdMove(self, coverPos);
+				printl("Bot " + self.GetPlayerName() + " mencari perlindungan dari Tank.");
+				return L4B.Settings.bot_think_interval;
+			}
+		}
+
+		// Lakukan pergerakan lateral secara acak untuk menghindari serangan
+		if (RandomInt(0, 10) == 0) // 10% kemungkinan setiap think
+		{
+			L4B_PerformLateralMovement(self, g_hTankTarget);
+			return L4B.Settings.bot_think_interval;
+		}
+
+		// Cek apakah bot terjebak
+		if (L4B_IsBotTrapped(self))
+		{
+			printl("Bot " + self.GetPlayerName() + " terjebak, mencari jalan keluar.");
+			// Cari area yang lebih terbuka yang jauh dari Tank
+			local escapePos = g_vTankLastKnownPos + ((self.GetOrigin() - g_vTankLastKnownPos).Norm() * 1000);
+			local startNav = NavMesh.GetNearestNavArea(self.GetOrigin());
+			local endNav = NavMesh.GetNearestNavArea(escapePos);
+			if (startNav && endNav)
+			{
+				local path = FindPath(startNav, endNav);
+				if (path)
+				{
+					self.GetScriptScope().currentPath = path;
+					self.GetScriptScope().pathIndex = 0;
+					printl("Bot " + self.GetPlayerName() + " menemukan jalur evakuasi.");
+					return L4B.Settings.bot_think_interval;
+				}
+			}
+		}
+	}
+
 	// Dynamic Pathfinding
 	if ("currentPath" in self.GetScriptScope() && self.GetScriptScope().currentPath)
 	{
