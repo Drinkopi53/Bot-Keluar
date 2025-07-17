@@ -78,10 +78,40 @@ printl("Successfully patched Left4Bots.OnTankActive.");
     if (tmr)
         tmr.Stop();
 
-    // Panggil dengan konteks yang benar untuk menghindari error 'GetTimer'
-    ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots)();
+    // Inline fungsi OnIncapNavBlockerTimer untuk mengatasi masalah konteks secara definitif
+    Logger.Debug("OnIncapNavBlockerTimer (Inlined)");
+
+    // Reset the flags of all the previously blocked nav areas
+    foreach (id, c in IncapNavBlockerAreas)
+        IncapNavBlockerAreas[id] = false;
+
+    // ... (sisa logika dari OnIncapNavBlockerTimer) ...
+    // Karena tank sudah tidak ada, kita hanya perlu membersihkan area yang diblokir.
+
+    local idstoremove = [];
+    foreach (id, flag in IncapNavBlockerAreas)
+    {
+        if (!flag)
+        {
+            local area = NavMesh.GetNavAreaByID(id);
+            if (area && area.IsBlocked(TEAM_SURVIVORS, false))
+            {
+                Logger.Debug("Unblocking area " + id);
+                area.UnblockArea();
+
+                if (Settings.incap_block_nav_debug)
+                    area.DebugDrawFilled(0, 255, 0, 255, 1.0);
+            }
+            idstoremove.append(id);
+        }
+    }
+
+    foreach (id in idstoremove)
+        delete IncapNavBlockerAreas[id];
+
+    Logger.Debug("IncapNavBlockerAreas cleaned.");
 }
-printl("Successfully patched Left4Bots.OnTankGone.");
+printl("Successfully patched Left4Bots.OnTankGone with inlined logic.");
 
 // Variabel global untuk fitur Posisi Bertahan Adaptif
 ::g_hTankTarget <- null;
