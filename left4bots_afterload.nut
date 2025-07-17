@@ -23,11 +23,39 @@ printl("enforce shotgun or sniper rifle");
 ::Left4Bots.Settings.enforce_sniper_rifle <- 15; // pistol + magnum + melee + chainsaw
 
 // Perbaikan untuk error 'Left4Timers2' tidak ada
-if (!("Left4Timers2" in getroottable()))
+try
 {
-    ::Left4Timers2 <- ::Left4Timers;
-    printl("Left4Timers2 alias created.");
+    if (!("Left4Timers2" in getroottable()) && ("Left4Timers" in getroottable()))
+    {
+        ::Left4Timers2 <- getroottable()["Left4Timers"];
+        printl("Successfully created alias for Left4Timers2.");
+    }
 }
+catch (ex)
+{
+    printl("Error creating Left4Timers2 alias: " + ex);
+}
+
+// Monkey-patch untuk memperbaiki bug timer di OnGameEvent_player_spawn
+if (("Events" in ::Left4Bots) && ("OnGameEvent_player_spawn" in ::Left4Bots.Events))
+{
+    ::Left4Bots.Events.OnGameEvent_player_spawn <- function(params)
+    {
+        local player = null;
+        if ("userid" in params)
+            player = g_MapScript.GetPlayerFromUserID(params["userid"]);
+
+        if (!player || !player.IsValid())
+            return;
+
+        // Panggil fungsi asli yang ada di dalam Left4Bots, bukan Left4Timers
+        // Ini menghindari masalah konteks 'this' yang menyebabkan error 'GetTimer does not exist'
+        ::Left4Bots.OnPostPlayerSpawn(player, params["userid"].tointeger());
+        printl("Patched OnGameEvent_player_spawn executed for " + player.GetPlayerName());
+    }
+    printl("Successfully patched Left4Bots.Events.OnGameEvent_player_spawn.");
+}
+
 
 // Variabel global untuk fitur Posisi Bertahan Adaptif
 ::g_hTankTarget <- null;
