@@ -1,4 +1,4 @@
-/*
+'''/*
 	Based on v2.3.3
 
 	enforce sniper rifle and shotgun, prevent vanilla AI switch to pistol/magnum/melee/chainsaw, only allow use secondary weapon when ammo run out(same as rifle).
@@ -21,6 +21,9 @@ printl("enforce shotgun or sniper rifle");
 // pistol = 1, magnum = 2, melee = 4, chainsaw = 8
 ::Left4Bots.Settings.enforce_shotgun <- 15; // pistol + magnum + melee + chainsaw
 ::Left4Bots.Settings.enforce_sniper_rifle <- 15; // pistol + magnum + melee + chainsaw
+
+// Variabel global untuk menyimpan target Tank
+::g_hTankTarget <- null;
 
 
 // Returns the "WeaponType" for the weapon with the given id
@@ -146,6 +149,102 @@ printl("enforce shotgun or sniper rifle");
 	AllowSecondaryWeaponSwitch(bot, canSwitch);
 }
 
+// Fungsi untuk mendeteksi Tank yang aktif
+::L4B_IsTankActive <- function()
+{
+	local tank = Entities.FindByClassname(null, "tank");
+	if (tank && tank.IsValid())
+	{
+		g_hTankTarget = tank;
+		return true;
+	}
+
+	g_hTankTarget = null;
+	return false;
+}
+
+// Fungsi untuk mendapatkan jarak optimal berdasarkan senjata
+::L4B_GetOptimalDistance <- function(hBot, hWeapon)
+{
+	local weaponType = Left4Utils.GetWeaponTypeById(Left4Utils.GetWeaponId(hWeapon));
+	switch (weaponType)
+	{
+		case "shotgun":
+			return { min = 200, max = 500 };
+		case "sniper_rifle":
+			return { min = 800, max = 1500 };
+		default:
+			return { min = 400, max = 1000 }; // Jarak default untuk senjata lain
+	}
+}
+
+// Fungsi untuk mencari penutup dari Tank
+::L4B_FindCover <- function(hBot, hTank)
+{
+    local botOrigin = hBot.GetOrigin();
+    local tankOrigin = hTank.GetOrigin();
+    local bestCover = null;
+    local bestCoverScore = 0;
+
+    // Cari objek di sekitar bot
+    local ent = null;
+    while (ent = Entities.FindInSphere(ent, botOrigin, 1000))
+    {
+        if (ent && ent.IsValid() && ent.IsSolid() && ent.GetClassname() != "player")
+        {
+            // Cek apakah objek bisa memblokir pandangan dari Tank
+            local coverPos = ent.GetOrigin();
+            local trace = {};
+            TraceLine(trace, tankOrigin, botOrigin, MASK_SOLID_BRUSHONLY, hTank);
+            if (trace.fraction < 1.0 && trace.pHit == ent)
+            {
+                // Beri skor pada penutup
+                local score = 1.0 / (botOrigin - coverPos).Length(); // Lebih dekat lebih baik
+                if (score > bestCoverScore)
+                {
+                    bestCoverScore = score;
+                    bestCover = coverPos;
+                }
+            }
+        }
+    }
+    return bestCover;
+}
+
+// Fungsi untuk melakukan pergerakan lateral
+::L4B_PerformLateralMovement <- function(hBot, hTank)
+{
+    local botOrigin = hBot.GetOrigin();
+    local tankOrigin = hTank.GetOrigin();
+
+    local toTank = (tankOrigin - botOrigin).Norm();
+    local right = toTank.Cross(Vector(0,0,1));
+
+    local moveDir = (RandomInt(0, 1) == 0) ? right : -right;
+    local movePos = botOrigin + (moveDir * 150);
+
+    // Cek apakah posisi baru valid
+    local nav = NavMesh.GetNearestNavArea(movePos);
+    if (nav && nav.IsValid())
+    {
+        Left4Utils.BotCmdMove(self, movePos);
+    }
+}
+
+// Fungsi untuk memeriksa apakah bot terjebak
+::L4B_IsBotTrapped <- function(hBot)
+{
+    local nav = NavMesh.GetNearestNavArea(hBot.GetOrigin());
+    if (nav && nav.IsValid())
+    {
+        if (nav.GetConnectionCount() <= 1) // Hanya satu atau tidak ada jalan keluar
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 ::Left4Bots.AIFuncs.BotThink_Main <- function ()
 {
 	// https://github.com/smilz0/Left4Bots/issues/2
@@ -161,6 +260,61 @@ printl("enforce shotgun or sniper rifle");
 	{
 		ActiveWeaponId = Left4Utils.GetWeaponId(ActiveWeapon);
 		ActiveWeaponSlot = Left4Utils.GetWeaponSlotById(ActiveWeaponId);
+	}
+
+	// Deteksi Tank
+	if (L4B_IsTankActive() && g_hTankTarget)
+	{
+		local tankOrigin = g_hTankTarget.GetOrigin();
+		local tankVelocity = g_hTankTarget.GetVelocity();
+		// Simpan posisi dan kecepatan tank untuk digunakan nanti
+		self.GetScriptScope().lastTankOrigin <- tankOrigin;
+		self.GetScriptScope().lastTankVelocity <- tankVelocity;
+
+		// Logika Hindari Terjebak
+		if (L4B_IsBotTrapped(self))
+		{
+			local escapePath = FindPath(NavMesh.GetNearestNavArea(self.GetOrigin()), NavMesh.GetNearestNavArea(g_hTankTarget.GetOrigin(), false));
+			if (escapePath && escapePath.len() > 1)
+			{
+				Left4Utils.BotCmdMove(self, escapePath[1].GetCenter());
+				return L4B.Settings.bot_think_interval;
+			}
+		}
+
+		// Logika Penggunaan Penutup
+		local coverPos = L4B_FindCover(self, g_hTankTarget);
+		if (coverPos)
+		{
+			Left4Utils.BotCmdMove(self, coverPos);
+			return L4B.Settings.bot_think_interval; // Prioritaskan mencari penutup
+		}
+
+		// Logika Pergerakan Lateral
+		L4B_PerformLateralMovement(self, g_hTankTarget);
+
+		// Logika Jarak Optimal
+		local hWeapon = self.GetActiveWeapon();
+		if (hWeapon)
+		{
+			local optimalDist = L4B_GetOptimalDistance(self, hWeapon);
+			local currentDist = (self.GetOrigin() - tankOrigin).Length();
+
+			if (currentDist < optimalDist.min)
+			{
+				// Terlalu dekat, mundur
+				local awayVector = (self.GetOrigin() - tankOrigin).Norm();
+				local movePos = self.GetOrigin() + (awayVector * 200);
+				Left4Utils.BotCmdMove(self, movePos);
+			}
+			else if (currentDist > optimalDist.max)
+			{
+				// Terlalu jauh, maju
+				local towardsVector = (tankOrigin - self.GetOrigin()).Norm();
+				local movePos = self.GetOrigin() + (towardsVector * 200);
+				Left4Utils.BotCmdMove(self, movePos);
+			}
+		}
 	}
 
 	// handle switch logic
@@ -756,4 +910,4 @@ if (!("AddBotThink_orig" in ::Left4Bots))
 
 	return L4B.Settings.bot_think_interval;
 }
-
+'''
