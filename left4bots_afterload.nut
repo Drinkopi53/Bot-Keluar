@@ -25,75 +25,66 @@ printl("enforce shotgun or sniper rifle");
 
 
 
-// SOLUSI DEFINITIF: Timpa event handler dan inline semua logika pembersihan
-if (("Events" in ::Left4Bots) && ("OnGameEvent_tank_killed" in ::Left4Bots.Events))
+
+
+// Deklarasi variabel global yang diperlukan untuk menangani status Tank
+::OnTankSettingsBak <- {};
+::OnTankCvarsBak <- {};
+::IncapNavBlockerAreas <- {};
+
+// Timpa fungsi OnTankActive untuk memastikan variabel Bak diisi dengan benar
+::Left4Bots.OnTankActive <- function ()
 {
-    ::Left4Bots.Events.OnGameEvent_tank_killed <- function (params)
+    Logger.Debug("OnTankActive (Patched in afterload)");
+
+    // Settings
+    foreach (key, val in ::Left4Bots.OnTankSettings)
     {
-        printl("Patched OnGameEvent_tank_killed executing...");
-        if (!("userid" in params)) return;
-
-        local tankId = params["userid"].tointeger();
-
-        if (tankId in ::Left4Bots.Tanks)
-        {
-            delete ::Left4Bots.Tanks[tankId];
-            ::Left4Bots.Logger.Debug("Tank " + tankId + " removed. Remaining: " + ::Left4Bots.Tanks.len());
-
-            if (::Left4Bots.Tanks.len() == 0)
-            {
-                ::Left4Bots.Logger.Debug("All tanks are gone. Cleaning up...");
-
-                // --- Logika OnTankGone di-inline ---
-                // 1. Kembalikan Settings
-                foreach (key, val in ::OnTankSettingsBak)
-                {
-                    ::Left4Bots.Settings[key] <- val;
-                    ::Left4Bots.Logger.Debug("Setting " + key + " reverted to " + val);
-                }
-                ::OnTankSettingsBak.clear();
-
-                // 2. Kembalikan Convars
-                foreach (key, val in ::OnTankCvarsBak)
-                {
-                    Convars.SetValue(key, val);
-                    ::Left4Bots.Logger.Debug("Convar " + key + " reverted to " + val);
-                }
-                ::OnTankCvarsBak.clear();
-
-                // 3. Hentikan dan bersihkan timer & area nav
-                local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
-                if (tmr)
-                {
-                    tmr.Stop();
-                    ::Left4Bots.Logger.Debug("Timer L4B_IncapNavBlocker stopped.");
-                }
-
-                // --- Logika OnIncapNavBlockerTimer di-inline (hanya pembersihan) ---
-                local idstoremove = [];
-                foreach (id, flag in ::IncapNavBlockerAreas)
-                {
-                    local area = NavMesh.GetNavAreaByID(id);
-                    if (area && area.IsBlocked(TEAM_SURVIVORS, false))
-                    {
-                        area.UnblockArea();
-                    }
-                    idstoremove.append(id);
-                }
-                foreach (id in idstoremove)
-                {
-                    delete ::IncapNavBlockerAreas[id];
-                }
-                ::Left4Bots.Logger.Debug("IncapNavBlockerAreas cleaned.");
-            }
-        }
-        else
-        {
-            ::Left4Bots.Logger.Warning("Dead tank " + tankId + " was not in Left4Bots.Tanks");
-        }
+        ::OnTankSettingsBak[key] <- ::Left4Bots.Settings[key];
+        ::Left4Bots.Settings[key] <- val;
+        Logger.Debug("Changing setting " + key + " to " + val);
     }
-    printl("DEFINITIVE PATCH APPLIED: Left4Bots.Events.OnGameEvent_tank_killed has been fully overridden.");
+
+    // Convars
+    foreach (key, val in ::Left4Bots.OnTankCvars)
+    {
+        ::OnTankCvarsBak[key] <- Convars.GetStr(key);
+        Convars.SetValue(key, val);
+        Logger.Debug("Changing convar " + key + " to " + val);
+    }
+
+    if (::Left4Bots.Settings.incap_block_nav_interval > 0)
+    {
+        local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
+        if (!tmr)
+            tmr = ::Left4Timers.AddTimer("L4B_IncapNavBlocker", ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots), ::Left4Bots.Settings.incap_block_nav_interval, ::Left4Bots.Settings.incap_block_nav_interval);
+        if(tmr) tmr.Start();
+    }
 }
+printl("Successfully patched Left4Bots.OnTankActive in afterload.");
+
+// Timpa event handler untuk memanggil OnTankGone dengan scope yang benar
+::Left4Bots.Events.OnGameEvent_tank_killed <- function (params)
+{
+    if (!("userid" in params)) return;
+    local tankId = params["userid"].tointeger();
+
+    if (tankId in ::Left4Bots.Tanks)
+    {
+        delete ::Left4Bots.Tanks[tankId];
+        if (::Left4Bots.Tanks.len() == 0)
+        {
+            // Panggil OnTankGone yang asli dengan scope yang benar
+            ::Left4Bots.OnTankGone.bindenv(::Left4Bots)();
+        }
+        ::Left4Bots.Logger.Debug("Active tanks: " + ::Left4Bots.Tanks.len());
+    }
+    else
+    {
+        ::Left4Bots.Logger.Warning("Dead tank was not in Left4Bots.Tanks");
+    }
+}
+printl("Successfully patched OnGameEvent_tank_killed in afterload.");
 
 
 // Variabel global untuk fitur Posisi Bertahan Adaptif
