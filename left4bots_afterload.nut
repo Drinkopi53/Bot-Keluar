@@ -22,40 +22,64 @@ printl("enforce shotgun or sniper rifle");
 ::Left4Bots.Settings.enforce_shotgun <- 15; // pistol + magnum + melee + chainsaw
 ::Left4Bots.Settings.enforce_sniper_rifle <- 15; // pistol + magnum + melee + chainsaw
 
-// Perbaikan untuk error 'Left4Timers2' tidak ada
-try
+// Timpa fungsi OnTankActive untuk memperbaiki bug timer
+::Left4Bots.OnTankActive <- function ()
 {
-    if (!("Left4Timers2" in getroottable()) && ("Left4Timers" in getroottable()))
+    Logger.Debug("OnTankActive (Patched)");
+
+    // Settings
+    foreach (key, val in OnTankSettings)
     {
-        ::Left4Timers2 <- getroottable()["Left4Timers"];
-        printl("Successfully created alias for Left4Timers2.");
+        OnTankSettingsBak[key] <- Settings[key];
+        Settings[key] <- val;
+        Logger.Debug("Changing setting " + key + " to " + val);
+    }
+
+    // Convars
+    foreach (key, val in OnTankCvars)
+    {
+        OnTankCvarsBak[key] <- Convars.GetStr(key);
+        Convars.SetValue(key, val);
+        Logger.Debug("Changing convar " + key + " to " + val);
+    }
+
+    if (Settings.incap_block_nav_interval > 0)
+    {
+        local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
+        if (!tmr)
+            tmr = ::Left4Timers.AddTimer("L4B_IncapNavBlocker", ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots), Settings.incap_block_nav_interval, Settings.incap_block_nav_interval);
+        if(tmr) tmr.Start();
     }
 }
-catch (ex)
-{
-    printl("Error creating Left4Timers2 alias: " + ex);
-}
+printl("Successfully patched Left4Bots.OnTankActive.");
 
-// Monkey-patch untuk memperbaiki bug timer di OnGameEvent_player_spawn
-if (("Events" in ::Left4Bots) && ("OnGameEvent_player_spawn" in ::Left4Bots.Events))
+// Timpa fungsi OnTankGone untuk memperbaiki bug timer
+::Left4Bots.OnTankGone <- function ()
 {
-    ::Left4Bots.Events.OnGameEvent_player_spawn <- function(params)
+    Logger.Debug("OnTankGone (Patched)");
+
+    // Settings
+    foreach (key, val in OnTankSettingsBak)
     {
-        local player = null;
-        if ("userid" in params)
-            player = g_MapScript.GetPlayerFromUserID(params["userid"]);
-
-        if (!player || !player.IsValid())
-            return;
-
-        // Panggil fungsi asli yang ada di dalam Left4Bots, bukan Left4Timers
-        // Ini menghindari masalah konteks 'this' yang menyebabkan error 'GetTimer does not exist'
-        ::Left4Bots.OnPostPlayerSpawn(player, params["userid"].tointeger());
-        printl("Patched OnGameEvent_player_spawn executed for " + player.GetPlayerName());
+        Settings[key] <- val;
+        Logger.Debug("Changing setting " + key + " back to " + val);
     }
-    printl("Successfully patched Left4Bots.Events.OnGameEvent_player_spawn.");
-}
+    OnTankSettingsBak.clear();
 
+    // Convars
+    foreach (key, val in OnTankCvarsBak)
+    {
+        Convars.SetValue(key, val);
+        Logger.Debug("Changing convar " + key + " back to " + val);
+    }
+    OnTankCvarsBak.clear();
+
+    local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
+    if (tmr)
+        tmr.Stop();
+    OnIncapNavBlockerTimer();
+}
+printl("Successfully patched Left4Bots.OnTankGone.");
 
 // Variabel global untuk fitur Posisi Bertahan Adaptif
 ::g_hTankTarget <- null;
