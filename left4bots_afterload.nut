@@ -77,7 +77,9 @@ printl("Successfully patched Left4Bots.OnTankActive.");
     local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
     if (tmr)
         tmr.Stop();
-    OnIncapNavBlockerTimer();
+
+    // Panggil dengan konteks yang benar untuk menghindari error 'GetTimer'
+    ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots)();
 }
 printl("Successfully patched Left4Bots.OnTankGone.");
 
