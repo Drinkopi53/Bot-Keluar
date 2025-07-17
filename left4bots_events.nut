@@ -1417,9 +1417,9 @@ Msg("Including left4bots_events...\n");
 
 	if (Settings.incap_block_nav_interval > 0)
 	{
-		local tmr = ::Left4Timers2.GetTimer("L4B_IncapNavBlocker");
+		local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
 		if (!tmr)
-			tmr = ::Left4Timers2.AddTimer("L4B_IncapNavBlocker", ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots), Settings.incap_block_nav_interval, Settings.incap_block_nav_interval);
+			tmr = ::Left4Timers.AddTimer("L4B_IncapNavBlocker", ::Left4Bots.OnIncapNavBlockerTimer.bindenv(::Left4Bots), Settings.incap_block_nav_interval, Settings.incap_block_nav_interval);
 		tmr.Start();
 	}
 }
@@ -1447,7 +1447,7 @@ Msg("Including left4bots_events...\n");
 	}
 	OnTankCvarsBak.clear();
 
-	local tmr = ::Left4Timers2.GetTimer("L4B_IncapNavBlocker");
+	local tmr = ::Left4Timers.GetTimer("L4B_IncapNavBlocker");
 	if (tmr)
 		tmr.Stop();
 	OnIncapNavBlockerTimer();
