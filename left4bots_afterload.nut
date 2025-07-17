@@ -22,6 +22,13 @@ printl("enforce shotgun or sniper rifle");
 ::Left4Bots.Settings.enforce_shotgun <- 15; // pistol + magnum + melee + chainsaw
 ::Left4Bots.Settings.enforce_sniper_rifle <- 15; // pistol + magnum + melee + chainsaw
 
+// Perbaikan untuk error 'Left4Timers2' tidak ada
+if (!("Left4Timers2" in getroottable()))
+{
+    ::Left4Timers2 <- ::Left4Timers;
+    printl("Left4Timers2 alias created.");
+}
+
 // Variabel global untuk fitur Posisi Bertahan Adaptif
 ::g_hTankTarget <- null;
 ::g_vTankLastKnownPos <- null;
